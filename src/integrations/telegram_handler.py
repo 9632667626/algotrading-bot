@@ -8,19 +8,27 @@ from typing import Optional, Dict, Any, Callable
 import logging
 import asyncio
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class TelegramHandler:
     """Handler for reading Telegram channel messages."""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize Telegram handler.
         
+        If no config is provided, reads from environment variables.
+        
         Args:
-            config: Telegram configuration dictionary
+            config: Optional Telegram configuration dictionary
+                   If None, loads from environment variables (.env file)
                    {
                        'api_id': 'your_api_id',
                        'api_hash': 'your_api_hash',
@@ -29,6 +37,10 @@ class TelegramHandler:
                        'phone_number': '+1234567890'
                    }
         """
+        # If config not provided, load from environment
+        if config is None:
+            config = self._load_from_env()
+        
         self.config = config
         self.api_id = config.get('api_id')
         self.api_hash = config.get('api_hash')
@@ -41,12 +53,40 @@ class TelegramHandler:
         
         self._validate_config()
     
+    @staticmethod
+    def _load_from_env() -> Dict[str, Any]:
+        """
+        Load Telegram configuration from environment variables.
+        
+        Returns:
+            Configuration dictionary from .env file
+        """
+        config = {
+            'api_id': os.getenv('TELEGRAM_API_ID'),
+            'api_hash': os.getenv('TELEGRAM_API_HASH'),
+            'bot_token': os.getenv('TELEGRAM_BOT_TOKEN'),
+            'channel_id': int(os.getenv('TELEGRAM_CHANNEL_ID', '0')) or None,
+            'phone_number': os.getenv('TELEGRAM_PHONE'),
+        }
+        return config
+    
     def _validate_config(self) -> None:
         """Validate configuration."""
         if not self.api_id or not self.api_hash:
-            logger.warning("Telegram API ID and Hash not configured")
+            logger.warning(
+                "Telegram API ID and Hash not configured. "
+                "Set TELEGRAM_API_ID and TELEGRAM_API_HASH in .env"
+            )
         if not self.channel_id:
-            logger.warning("Telegram channel ID not configured")
+            logger.warning(
+                "Telegram channel ID not configured. "
+                "Set TELEGRAM_CHANNEL_ID in .env"
+            )
+        if not self.phone_number:
+            logger.warning(
+                "Telegram phone number not configured. "
+                "Set TELEGRAM_PHONE in .env"
+            )
     
     async def connect(self) -> bool:
         """
